@@ -10,8 +10,6 @@ import pytest
         (2019, 13, 28),
         (1, 1, 1),
         (9999, 13, 28),
-        (2019, 13, 29),
-        (2000, 6, 29),
     ],
 )
 def test_create_valid_ifc_date(year, month, day):
