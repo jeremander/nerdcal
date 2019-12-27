@@ -49,7 +49,7 @@ MAX_ORDINAL = 3652059  # max ordinal of any day
 ###########
 
 class Date(ABC):
-    """Abstract base class for dates."""
+    """Abstract base class for dates, analogous to datetime.date."""
 
     # Accessors
 
@@ -57,15 +57,7 @@ class Date(ABC):
     def get_year(self) -> int:
         """Return the year."""
 
-    # Month and weekday names
-
-    @abstractclassmethod
-    def month_names(cls) -> List[str]:
-        """Full names of each month."""
-
-    @abstractclassmethod
-    def month_abbrevs(cls) -> List[str]:
-        """Abbreviated names of each month (3 letters, for use with ctime())."""
+    # Weekday names
 
     @abstractclassmethod
     def weekday_names(cls) -> List[str]:
@@ -89,7 +81,7 @@ class Date(ABC):
 
     @abstractclassmethod
     def _from_year_and_ordinal(cls, year: int, n: int) -> 'Date':
-        """Construct a Date from a year and an ordinal number within the year, where 1 is the first day of the year."""
+        """Construct a Date from a year and an ordinal number within the year, where 0 is the first day of the year."""
         raise NotImplementedError
 
     @classmethod
@@ -131,10 +123,6 @@ class Date(ABC):
     def todate(self) -> date:
         """Convert to a datetime.date object."""
         return date.fromordinal(self.toordinal())
-
-    @abstractmethod
-    def replace(self, year: int = None, month: int = None, day: int = None) -> 'Date':
-        """Return a new Date with new values for the specified fields."""
 
     # Computations
 

@@ -1,3 +1,9 @@
+"""Positivist Calendar
+
+Devised by the philosopher Auguste Comte in 1849.
+
+See: https://en.wikipedia.org/wiki/Positivist_calendar"""
+
 from typing import List
 
 from nerdcal._base import days_before_year, is_leap_year
@@ -5,6 +11,13 @@ from nerdcal.ifc import DAYS_IN_MONTH, DAYS_IN_WEEK, MIN_MONTH, MAX_MONTH, IFCDa
 
 
 class PositivistDate(IFCDate):
+    """Concrete date type for Comte's positivist calendar.
+
+    There are 13 months, consisting of 28 days each.
+    The months are all named after prominent historic figures (e.g. religious leaders, philosophers, authors).
+    At the end of the year is an intercalary day, the Festival of the Dead.
+    On leap years, an additional day is added, the Festival of Holy Women.
+    For simplicity, these days will be represented as Bichat (the last month) 29 and 30."""
 
     # Helpers
 
@@ -57,5 +70,6 @@ class PositivistDate(IFCDate):
 
 
 class PositivistDatetime(IFCDatetime):
+    """Concrete datetime type for Comte's positivist calendar."""
 
     _date_class = PositivistDate

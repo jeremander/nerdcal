@@ -22,9 +22,9 @@ DAYS_IN_WEEK = 7
 
 @dataclass(order = True, frozen = True)
 class IFCDate(Date):
-    """Concrete date type for IFC, analogous to datetime.date.
+    """Concrete date type for IFC.
 
-    There are 13 months consisting of 28 days each.
+    There are 13 months, consisting of 28 days each.
     The additional month, Sol, occurs between June and July.
     However, for simplicity, Year Day will be represented as December 29, and Leap Day will be represented as June 29."""
     year: int
@@ -42,7 +42,7 @@ class IFCDate(Date):
         if not MIN_MONTH <= self.month <= MAX_MONTH:
             raise ValueError(f'month must be in {MIN_MONTH}..{MAX_MONTH}', self.month)
         dim = self._days_in_month(self.year)[self.month - 1]
-        if not 1 <= self.day <= dim:
+        if not (1 <= self.day <= dim):
             raise ValueError(f'day must be in 1..{dim}', self.day)
 
     # Accessors
@@ -66,10 +66,12 @@ class IFCDate(Date):
 
     @classmethod
     def month_names(cls) -> List[str]:
+        """Full names of each month."""
         return ['January', 'February', 'March', 'April', 'May', 'June', 'Sol', 'July', 'August', 'September', 'October', 'November', 'December']
 
     @classmethod
     def month_abbrevs(cls) -> List[str]:
+        """Abbreviated names of each month (3 letters, for use with ctime())."""
         return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Sol', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
     @classmethod
@@ -91,18 +93,13 @@ class IFCDate(Date):
 
     @classmethod
     def fromisoformat(cls, date_string: str) -> 'IFCDate':
-        """Construct an IFCDate from the output of IFCDate.isoformat()."""
         if not isinstance(date_string, str):
             raise TypeError('fromisoformat: argument must be str')
-        try:
-            return cls(*parse_isoformat_date(date_string))
-        except:
-            raise ValueError(f'Invalid isoformat string for {cls.__name__}: {date_string!r}')
+        return cls(*parse_isoformat_date(date_string))
 
     # Standard conversions
 
     def toordinal(self) -> int:
-        """Convert to an ordinal number, where day 1 is January 1 of year 1."""
         return days_before_year(self.year) + self._days_before_month(self.year)[self.month - 1] + self.day
 
     def replace(self, year: int = None, month: int = None, day: int = None) -> 'IFCDate':
@@ -148,10 +145,10 @@ IFCDate.resolution = timedelta(days = 1)
 
 @dataclass(order = True, frozen = True)
 class IFCDatetime(Datetime):
-    """Concrete datetime type for IFC, analogous to datetime.datetime.
+    """Concrete datetime type for IFC.
 
     IFCDatetime(year, month, day[, hour[, minute[, second[, microsecond[,tzinfo]]]]])
-    The year, month and day arguments are required."""
+    The year, month, and day arguments are required."""
     _date_class = IFCDate
 
     year: int
@@ -208,4 +205,4 @@ class IFCDatetime(Datetime):
 
 IFCDatetime.min = IFCDatetime(1, 1, 1)
 IFCDatetime.max = IFCDatetime(9999, 13, 29, 23, 59, 59, 999999)
-IFCDatetime.resolution = timedelta(microseconds=1)
+IFCDatetime.resolution = timedelta(microseconds = 1)
