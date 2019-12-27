@@ -4,9 +4,10 @@ Devised by the philosopher Auguste Comte in 1849.
 
 See: https://en.wikipedia.org/wiki/Positivist_calendar"""
 
+from calendar import isleap
 from typing import List
 
-from nerdcal._base import days_before_year, is_leap_year
+from nerdcal._base import days_before_year
 from nerdcal.ifc import DAYS_IN_MONTH, DAYS_IN_WEEK, MIN_MONTH, MAX_MONTH, IFCDate, IFCDatetime
 
 
@@ -23,7 +24,7 @@ class PositivistDate(IFCDate):
 
     @classmethod
     def _days_in_month(cls, year: int) -> List[int]:
-        leap_year = is_leap_year(year)
+        leap_year = isleap(year)
         return [DAYS_IN_MONTH + 1 + (1 if leap_year else 0) if (month == 13) else DAYS_IN_MONTH for month in range(MIN_MONTH, MAX_MONTH + 1)]
 
     # Month and weekday names
@@ -62,7 +63,7 @@ class PositivistDate(IFCDate):
             return 'Fest. Dead'
         elif (self.month, self.day) == (13, 30):
             # Festival of Holy Women
-            return 'Fest. Wom '
+            return 'Fest. Wom.'
         weekday = self.weekday()
         weekday_name = self.weekday_abbrevs()[weekday]
         month_name = self.month_abbrevs()[self.month - 1]

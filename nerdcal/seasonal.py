@@ -11,7 +11,7 @@ from itertools import accumulate
 from operator import add
 from typing import List, Optional
 
-from nerdcal._base import check_int, Date, Datetime, days_before_year, is_leap_year, parse_isoformat_date
+from nerdcal._base import check_int, Date, Datetime, days_before_year
 
 
 MIN_YEAR = 1
@@ -103,12 +103,6 @@ class SeasonalDate(Date):
         # override this to shift year start date earlier by 11 days
         return super(SeasonalDate, cls).fromordinal(n + 11)
 
-    @classmethod
-    def fromisoformat(cls, date_string: str) -> 'SeasonalDate':
-        if not isinstance(date_string, str):
-            raise TypeError('fromisoformat: argument must be str')
-        return cls(*parse_isoformat_date(date_string))
-
     # Standard conversions
 
     def toordinal(self) -> int:
@@ -150,9 +144,6 @@ class SeasonalDate(Date):
     def strftime(self, fmt: str) -> str:
         # TODO: revamp strftime to handle season/day numbers/names
         raise NotImplementedError
-
-    def isoformat(self) -> str:
-        return f'{self.year:04d}-{self.season:02d}-{self.day:02d}'
 
 SeasonalDate.min = SeasonalDate(1, 1, 1)
 SeasonalDate.max = SeasonalDate(9999, 5, 73)
@@ -208,16 +199,6 @@ class SeasonalDatetime(Datetime):
 
     def replace(self, year: int = None, season: int = None, day: int = None, hour: int = None, minute: int = None, second: int = None, microsecond: int = None, tzinfo: tzinfo = None) -> 'SeasonalDatetime':
         return type(self)(year or self.year, season or self.season, day or self.day, hour or self.hour, minute or self.minute, second or self.second, microsecond or self.microsecond, tzinfo or self.tzinfo)
-
-    # Conversions to string
-
-    def ctime(self) -> str:
-        date_str = self.date()._ctime_date()
-        return '{} {:02d}:{:02d}:{:02d} {:04d}'.format(date_str, self.hour, self.minute, self.second, self.year)
-
-    def isoformat(self, sep: str = 'T', timespec: str = 'auto') -> str:
-        s = self.todatetime().isoformat(sep = sep, timespec = timespec)
-        return self.date().isoformat() + s[10:]
 
 SeasonalDatetime.min = SeasonalDatetime(1, 1, 1)
 SeasonalDatetime.max = SeasonalDatetime(9999, 5, 73, 23, 59, 59, 999999)

@@ -1,3 +1,4 @@
+- make default representation the __str__ method?
 - unit tests!
 - implement strftime/strptime
 - add a README
@@ -5,4 +6,8 @@
     - CI for lib installation
 - ensure pandas conversion works with Series, DatetimeIndex, etc.
     - e.g. test conversion of stock market data
-- graphical calendar API (tkinter? web app?)
+- graphical calendar API (web app?)
+    - static calendar with major holidays
+    - custom styling
+    - interactivity
+- LaTeX exporting

@@ -1,9 +1,10 @@
 """Abstract base classes for dates and datetimes in different calendar systems."""
 
 from abc import ABC, abstractclassmethod, abstractmethod
+from calendar import isleap
 from datetime import date, datetime, time, timedelta, tzinfo
 import time as _time
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Union
 
 
 #####################
@@ -16,26 +17,10 @@ def check_int(value: Any) -> None:
         return
     raise ValueError('an integer is required (got type {})'.format(type(value).__name__))
 
-def is_leap_year(year: int) -> bool:
-    """Returns True if the given year is a leap year."""
-    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
-
 def days_before_year(year: int) -> int:
     """Given a year, returns number of days before the first day of that year."""
     y = year - 1
     return y * 365 + y // 4 - y // 100 + y // 400
-
-def parse_isoformat_date(date_str: str) -> Tuple[int, int, int]:
-    """Parses a (year, month, day) tuple from a string of the form YYYY-MM-DD."""
-    assert len(date_str) == 10
-    year = int(date_str[0:4])
-    if date_str[4] != '-':
-        raise ValueError(f'Invalid date separator: {date_str[4]}')
-    month = int(date_str[5:7])
-    if date_str[7] != '-':
-        raise ValueError(f'Invalid date separator: {date_str[7]}')
-    day = int(date_str[8:10])
-    return (year, month, day)
 
 DI400Y = days_before_year(401)    # number of days in 400 years
 DI100Y = days_before_year(101)    # number of days in 100 years
@@ -65,19 +50,19 @@ class Date(ABC):
 
     @abstractclassmethod
     def weekday_abbrevs(cls) -> List[str]:
-        """Abbreviated names of each weekday (3 letters, for use with ctime())."""
+        """Abbreviated names of each weekday (3 letters)."""
 
     # Additional constructors
 
     @classmethod
     def fromtimestamp(cls, t: float) -> 'Date':
         "Construct a Date from a POSIX timestamp (like time.time())."
-        return cls.fromordinal(datetime.fromtimestamp(t).toordinal())
+        return cls.fromdate(date.fromtimestamp(t))
 
     @classmethod
     def today(cls) -> 'Date':
         "Construct a Date from time.time()."
-        return cls.fromtimestamp(_time.time())
+        return cls.fromdate(date.today())
 
     @abstractclassmethod
     def _from_year_and_ordinal(cls, year: int, n: int) -> 'Date':
@@ -97,13 +82,13 @@ class Date(ABC):
             # last day of a leap year
             return cls._from_year_and_ordinal(year - 1, DAYS_IN_YEAR)
         leapyear = n1 == 3 and (n4 != 24 or n100 == 3)
-        assert leapyear == is_leap_year(year)
+        assert leapyear == isleap(year)
         return cls._from_year_and_ordinal(year, n)
 
-    @abstractclassmethod
+    @classmethod
     def fromisoformat(cls, date_string: str) -> 'Date':
-        """Construct a Date from ISO format string YYYY-MM-DD."""
-        raise NotImplementedError
+        """Construct a Date from ISO 8601 format string YYYY-MM-DD (in proleptic Gregorian calendar)"""
+        return cls.fromdate(date.fromisoformat(date_string))
 
     @classmethod
     def fromdate(cls, date: date) -> 'Date':
@@ -149,7 +134,7 @@ class Date(ABC):
 
     def is_leap_year(self) -> bool:
         """Return True if the year is a leap year."""
-        return is_leap_year(self.get_year())
+        return isleap(self.get_year())
 
     @abstractmethod
     def weekday(self) -> int:
@@ -157,27 +142,21 @@ class Date(ABC):
 
     # String conversions
 
-    @abstractmethod
-    def _ctime_date(self) -> str:
-        """Render the date as a ctime() style string."""
-
     def ctime(self) -> str:
         "Return ctime() style string."
-        date_str = self._ctime_date()
-        return '{} 00:00:00 {:04d}'.format(date_str, self.get_year())
+        return self.todate().ctime()
 
     @abstractmethod
     def strftime(self, fmt: str) -> str:
         "Format using strftime()."
 
-    @abstractmethod
     def isoformat(self) -> str:
-        """Return the date formatted according to ISO.
+        """Return the date as an ISO 8601 format string YYYY-MM-DD (in proleptic Gregorian calendar)."""
+        return self.todate().isoformat()
 
-        This is 'YYYY-MM-DD'."""
-
+    @abstractmethod
     def __str__(self) -> str:
-        return self.isoformat()
+        """Standard string representation of the Date."""
 
 
 class Datetime(ABC):
@@ -317,16 +296,16 @@ class Datetime(ABC):
 
     # Conversions to string
 
-    @abstractmethod
     def ctime(self) -> str:
         "Return ctime() style string."
+        return self.todatetime().ctime()
 
-    @abstractmethod
     def isoformat(self, sep: str = 'T', timespec: str = 'auto') -> str:
-        """Return the time formatted according to ISO.
+        """Return the time formatted according to ISO 8601.
 
         The full format looks like 'YYYY-MM-DD HH:MM:SS.mmmmmm'.
-        By default, the fractional part is omitted if self.microsecond == 0.
+        This uses the proleptic Gregorian calendar date.
+        By default, the fractional part of the time is omitted if self.microsecond == 0.
 
         If self.tzinfo is not None, the UTC offset is also attached, giving
         giving a full format of 'YYYY-MM-DD HH:MM:SS.mmmmmm+HH:MM'.
@@ -337,7 +316,8 @@ class Datetime(ABC):
         The optional argument timespec specifies the number of additional
         terms of the time to include.
         """
+        return self.todatetime().isoformat()
 
     def __str__(self) -> str:
-        "Convert to string, for str()."
-        return self.isoformat(sep = ' ')
+        "Standard string representation of the datetime."""
+        return str(self.date()) + ' ' + str(self.time())
