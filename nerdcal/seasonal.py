@@ -30,7 +30,7 @@ class SeasonalDate(Date):
     Each season is divided into two months of 36 days each, with an interceding "mid-season" day.
     Each month is divided into four weeks of 9 days each, named after the planets.
     The leap year occurs in the usual place (old Feb. 29), which is between Winter 70 and 71.
-    For ease of representation, the leap year will be designated Winter 0."""
+    For ease of representation, the leap day will be designated Winter 0."""
     year: int
     season: int
     day: int
