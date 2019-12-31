@@ -3,13 +3,14 @@
 See: https://en.wikipedia.org/wiki/International_Fixed_Calendar"""
 
 from bisect import bisect
+from calendar import isleap
 from dataclasses import dataclass
 from datetime import time, timedelta, tzinfo
 from itertools import accumulate
 from operator import add
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from nerdcal._base import check_int, Date, Datetime, days_before_year, is_leap_year, parse_isoformat_date
+from nerdcal._base import check_int, Date, Datetime, days_before_year
 
 MIN_YEAR = 1
 MAX_YEAR = 9999
@@ -55,23 +56,21 @@ class IFCDate(Date):
     @classmethod
     def _days_in_month(cls, year: int) -> List[int]:
         """List of number of days in each month."""
-        return [DAYS_IN_MONTH + 1 if ((month == 6) and is_leap_year(year)) or (month == 13) else DAYS_IN_MONTH for month in range(MIN_MONTH, MAX_MONTH + 1)]
+        return [DAYS_IN_MONTH + 1 if ((month == 6) and isleap(year)) or (month == 13) else DAYS_IN_MONTH for month in range(MIN_MONTH, MAX_MONTH + 1)]
 
     @classmethod
     def _days_before_month(cls, year: int) -> List[int]:
         """List of number of days before the start of each month."""
         return list(accumulate([0] + cls._days_in_month(year), add))[:-1]
 
-    # Month and weekday names
+    # Month/weekday names
 
     @classmethod
     def month_names(cls) -> List[str]:
-        """Full names of each month."""
         return ['January', 'February', 'March', 'April', 'May', 'June', 'Sol', 'July', 'August', 'September', 'October', 'November', 'December']
 
     @classmethod
     def month_abbrevs(cls) -> List[str]:
-        """Abbreviated names of each month (3 letters, for use with ctime())."""
         return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Sol', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
     @classmethod
@@ -91,12 +90,6 @@ class IFCDate(Date):
         day = n - dbm[month - 1]
         return cls(year, month, day + 1)
 
-    @classmethod
-    def fromisoformat(cls, date_string: str) -> 'IFCDate':
-        if not isinstance(date_string, str):
-            raise TypeError('fromisoformat: argument must be str')
-        return cls(*parse_isoformat_date(date_string))
-
     # Standard conversions
 
     def toordinal(self) -> int:
@@ -114,29 +107,41 @@ class IFCDate(Date):
             return 7
         elif (self.month, self.day) == (6, 29):
             return 8
-        day_of_year = self.toordinal() - days_before_year(self.year)
+        day_of_year = self.day_of_year()
         if (self.month >= 7) and self.is_leap_year():
-            return day_of_year % DAYS_IN_WEEK
-        return (day_of_year - 1) % DAYS_IN_WEEK
+            return (day_of_year + 1) % DAYS_IN_WEEK
+        return day_of_year % DAYS_IN_WEEK
+
+    def day_of_year(self) -> int:
+        return self.toordinal() - days_before_year(self.year) - 1
+
+    def week_of_year(self) -> int:
+        day_of_year = self.day_of_year()
+        i = 1 if (self.is_leap_year() and (day_of_year >= 169)) else 0
+        return (day_of_year - i) // DAYS_IN_WEEK
 
     # Conversions to string
 
-    def _ctime_date(self) -> str:
-        if (self.month, self.day) == (6, 29):
-            return 'Leap Day  '
-        elif (self.month, self.day) == (13, 29):
-            return 'Year Day  '
+    def _strftime_dict(self) -> Dict[str, str]:
         weekday = self.weekday()
-        weekday_name = self.weekday_abbrevs()[weekday]
-        month_name = self.month_abbrevs()[self.month - 1]
-        return '{} {} {:2d}'.format(weekday_name, month_name, self.day)
-
-    def strftime(self, fmt: str) -> str:
-        # TODO: revamp strftime to handle IFC month/day numbers/names
-        raise NotImplementedError
-
-    def isoformat(self) -> str:
-        return f'{self.year:04d}-{self.month:02d}-{self.day:02d}'
+        if (weekday >= 7):
+            # only the month will appear for an intercalary day
+            weekday_name = weekday_abbrev = day = '--'
+            if (weekday == 7):
+                month_name = 'Year Day'
+                month_abbrev = month = 'YrD'
+            else:  # 8
+                month_name = 'Leap Day'
+                month_abbrev = month = 'LpD'
+        else:
+            weekday_name = self.weekday_names()[weekday]
+            weekday_abbrev = self.weekday_abbrevs()[weekday]
+            month_name = self.month_names()[self.month - 1]
+            month_abbrev = self.month_abbrevs()[self.month - 1]
+            month = str(self.month).zfill(2)
+            day = str(self.day).zfill(2)
+        week_of_year = str(self.week_of_year()).zfill(2)
+        return {'%a' : weekday_abbrev, '%A' : weekday_name, '%w' : str(weekday), '%d' : day, '%b' : month_abbrev, '%B' : month_name, '%m' : month, '%j' : str(self.day_of_year() + 1).zfill(3), '%U' : week_of_year, '%W' : week_of_year}
 
 IFCDate.min = IFCDate(1, 1, 1)
 IFCDate.max = IFCDate(9999, 13, 29)
@@ -173,12 +178,6 @@ class IFCDatetime(Datetime):
     def _combine(cls, date: IFCDate, time: time, tzinfo: Optional[tzinfo] = None) -> 'IFCDatetime':
         return cls(date.year, date.month, date.day, time.hour, time.minute, time.second, time.microsecond, tzinfo)
 
-    @classmethod
-    def strptime(cls, date_string: str, format: str) -> 'IFCDatetime':
-        import _strptime
-        # TODO: implement this
-        raise NotImplementedError
-
     # Standard conversions
 
     def date(self) -> 'IFCDate':
@@ -192,16 +191,6 @@ class IFCDatetime(Datetime):
 
     def replace(self, year: int = None, month: int = None, day: int = None, hour: int = None, minute: int = None, second: int = None, microsecond: int = None, tzinfo: tzinfo = None) -> 'IFCDatetime':
         return type(self)(year or self.year, month or self.month, day or self.day, hour or self.hour, minute or self.minute, second or self.second, microsecond or self.microsecond, tzinfo or self.tzinfo)
-
-    # Conversions to string
-
-    def ctime(self) -> str:
-        date_str = self.date()._ctime_date()
-        return '{} {:02d}:{:02d}:{:02d} {:04d}'.format(date_str, self.hour, self.minute, self.second, self.year)
-
-    def isoformat(self, sep: str = 'T', timespec: str = 'auto') -> str:
-        s = self.todatetime().isoformat(sep = sep, timespec = timespec)
-        return self.date().isoformat() + s[10:]
 
 IFCDatetime.min = IFCDatetime(1, 1, 1)
 IFCDatetime.max = IFCDatetime(9999, 13, 29, 23, 59, 59, 999999)

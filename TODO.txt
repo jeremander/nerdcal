@@ -1,8 +1,11 @@
 - unit tests!
-- implement strftime/strptime
 - add a README
-- add setup.py (require min Python 3.7)
-    - CI for lib installation
+- CI for lib installation
 - ensure pandas conversion works with Series, DatetimeIndex, etc.
     - e.g. test conversion of stock market data
-- graphical calendar API (tkinter? web app?)
+- graphical calendar API (web app?)
+    - static calendar with major holidays
+    - custom styling
+    - interactivity
+- LaTeX exporting
+- implement strptime (need to rewrite parts of _strptime module)
