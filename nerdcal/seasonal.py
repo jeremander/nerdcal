@@ -5,11 +5,12 @@ Devised by Galvin Industries, LLC.
 See: https://thenewcalendar.com"""
 
 from bisect import bisect
+from calendar import isleap
 from dataclasses import dataclass
 from datetime import time, timedelta, tzinfo
 from itertools import accumulate
 from operator import add
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from nerdcal._base import check_int, Date, Datetime, days_before_year
 
@@ -20,6 +21,7 @@ MIN_SEASON = 1
 MAX_SEASON = 5
 DAYS_IN_SEASON = 73
 MIDSEASON_DAY = 37
+DAYS_IN_WEEK = 9
 
 
 @dataclass(order = True, frozen = True)
@@ -45,7 +47,7 @@ class SeasonalDate(Date):
             raise ValueError(f'year must be in {MIN_YEAR}..{MAX_YEAR}', self.year)
         if not MIN_SEASON <= self.season <= MAX_SEASON:
             raise ValueError(f'season must be in {MIN_SEASON}..{MAX_SEASON}', self.season)
-        min_day = 0 if ((self.season == 1) and is_leap_year(self.year)) else 1
+        min_day = 0 if ((self.season == 1) and isleap(self.year)) else 1
         if not (min_day <= self.day <= DAYS_IN_SEASON):
             raise ValueError(f'day must be in {min_day}..{DAYS_IN_SEASON}', self.day)
 
@@ -59,21 +61,22 @@ class SeasonalDate(Date):
     @classmethod
     def _days_in_season(cls, year: int) -> List[int]:
         """List of number of days in each season."""
-        return [DAYS_IN_SEASON + 1 if ((season == 1) and is_leap_year(year)) else DAYS_IN_SEASON for season in range(MIN_SEASON, MAX_SEASON + 1)]
+        return [DAYS_IN_SEASON + 1 if ((season == 1) and isleap(year)) else DAYS_IN_SEASON for season in range(MIN_SEASON, MAX_SEASON + 1)]
 
     @classmethod
     def _days_before_season(cls, year: int) -> List[int]:
         """List of number of days before the start of each season."""
         return list(accumulate([0] + cls._days_in_season(year), add))[:-1]
 
-    # Season/weekday names
+    # Month/weekday names
 
     @classmethod
-    def season_names(cls) -> List[str]:
+    def month_names(cls) -> List[str]:
+        # NB: these are actually season names
         return ['Winter', 'Spring', 'Summer', 'Autumn', 'Fall']
 
     @classmethod
-    def season_abbrevs(cls) -> List[str]:
+    def month_abbrevs(cls) -> List[str]:
         return ['Win', 'Spr', 'Sum', 'Aut', 'Fal']
 
     @classmethod
@@ -107,7 +110,7 @@ class SeasonalDate(Date):
 
     def toordinal(self) -> int:
         day_offset = self.day
-        if is_leap_year(self.year) and (self.season == 1):
+        if isleap(self.year) and (self.season == 1):
             if (self.day == 0):
                 day_offset = 71
             elif (self.day >= 71):
@@ -128,22 +131,39 @@ class SeasonalDate(Date):
         if (self.day == MIDSEASON_DAY):
             return 9
         if (self.day > MIDSEASON_DAY):
-            return (self.day - 1) % 9
-        return self.day % 9
+            return (self.day - 2) % DAYS_IN_WEEK
+        return (self.day - 1) % DAYS_IN_WEEK
+
+    def day_of_year(self) -> int:
+        return self.toordinal() - self.replace(season = 1, day = 1).toordinal()
+
+    def week_of_year(self) -> int:
+        if (self.day == 0):  # leap day
+            # count leap day as part of the week it's within
+            return 7
+        elif (self.day == MIDSEASON_DAY):
+            # count midseason day as part of the preceding week
+            return 3
+        elif (self.day > MIDSEASON_DAY):
+            return (self.day - 2) // DAYS_IN_WEEK
+        return (self.day - 1) // DAYS_IN_WEEK
 
     # Conversions to string
 
-    def _ctime_date(self) -> str:
-        if (self.day == 0):
-            return 'Leap Day  '
+    def _strftime_dict(self) -> Dict[str, str]:
         weekday = self.weekday()
-        weekday_name = self.weekday_abbrevs()[weekday]
-        season_name = self.season_abbrevs()[self.season - 1]
-        return '{} {} {:2d}'.format(weekday_name, season_name, self.day)
-
-    def strftime(self, fmt: str) -> str:
-        # TODO: revamp strftime to handle season/day numbers/names
-        raise NotImplementedError
+        season_name = self.month_names()[self.season - 1]
+        season_abbrev = self.month_abbrevs()[self.season - 1]
+        day = str(self.day).zfill(2)
+        if (weekday >= 9):
+            weekday_name = weekday_abbrev = '--'
+            if (weekday == 10):  # leap day
+                day = 'Lp'
+        else:
+            weekday_name = self.weekday_names()[weekday]
+            weekday_abbrev = self.weekday_abbrevs()[weekday]
+        week_of_year = str(self.week_of_year()).zfill(2)
+        return {'%a' : weekday_abbrev, '%A' : weekday_name, '%w' : str(weekday), '%d' : day, '%b' : season_abbrev, '%B' : season_name, '%m' : str(self.season), '%j' : str(self.day_of_year() + 1).zfill(3), '%U' : week_of_year, '%W' : week_of_year}
 
 SeasonalDate.min = SeasonalDate(1, 1, 1)
 SeasonalDate.max = SeasonalDate(9999, 5, 73)
@@ -179,12 +199,6 @@ class SeasonalDatetime(Datetime):
     @classmethod
     def _combine(cls, date: SeasonalDate, time: time, tzinfo: Optional[tzinfo] = None) -> 'SeasonalDatetime':
         return cls(date.year, date.season, date.day, time.hour, time.minute, time.second, time.microsecond, tzinfo)
-
-    @classmethod
-    def strptime(cls, date_string: str, format: str) -> 'SeasonalDatetime':
-        import _strptime
-        # TODO: implement this
-        raise NotImplementedError
 
     # Standard conversions
 

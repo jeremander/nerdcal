@@ -1,6 +1,5 @@
-- make default representation the __str__ method?
 - unit tests!
-- implement strftime/strptime
+- implement strptime (need to rewrite parts of _strptime module)
 - add a README
 - add setup.py (require min Python 3.7)
     - CI for lib installation

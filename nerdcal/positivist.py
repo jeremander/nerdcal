@@ -5,7 +5,7 @@ Devised by the philosopher Auguste Comte in 1849.
 See: https://en.wikipedia.org/wiki/Positivist_calendar"""
 
 from calendar import isleap
-from typing import List
+from typing import Dict, List
 
 from nerdcal._base import days_before_year
 from nerdcal.ifc import DAYS_IN_MONTH, DAYS_IN_WEEK, MIN_MONTH, MAX_MONTH, IFCDate, IFCDatetime
@@ -52,22 +52,23 @@ class PositivistDate(IFCDate):
             return 7
         elif (self.month, self.day) == (13, 30):
             return 8
-        day_of_year = self.toordinal() - days_before_year(self.year)
-        return (day_of_year - 1) % DAYS_IN_WEEK
+        return self.day_of_year() % DAYS_IN_WEEK
+
+    def week_of_year(self) -> int:
+        return self.day_of_year() // DAYS_IN_WEEK
 
     # Conversions to string
 
-    def _ctime_date(self) -> str:
-        if (self.month, self.day) == (13, 29):
-            # Festival of the Dead
-            return 'Fest. Dead'
-        elif (self.month, self.day) == (13, 30):
-            # Festival of Holy Women
-            return 'Fest. Wom.'
+    def _strftime_dict(self) -> Dict[str, str]:
+        d = super()._strftime_dict()
         weekday = self.weekday()
-        weekday_name = self.weekday_abbrevs()[weekday]
-        month_name = self.month_abbrevs()[self.month - 1]
-        return '{} {} {:2d}'.format(weekday_name, month_name, self.day)
+        if (weekday == 7):
+            d['%B'] = 'Festival of the Dead'
+            d['%b'] = d['%m'] = 'FsD'
+        elif (weekday == 8):
+            d['%B'] = 'Festival of Holy Women'
+            d['%b'] = d['%m'] = 'FsW'
+        return d
 
 
 class PositivistDatetime(IFCDatetime):

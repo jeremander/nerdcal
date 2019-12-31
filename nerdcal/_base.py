@@ -2,9 +2,11 @@
 
 from abc import ABC, abstractclassmethod, abstractmethod
 from calendar import isleap
+from contextlib import contextmanager
+from copy import deepcopy
 from datetime import date, datetime, time, timedelta, tzinfo
 import time as _time
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 
 #####################
@@ -18,7 +20,7 @@ def check_int(value: Any) -> None:
     raise ValueError('an integer is required (got type {})'.format(type(value).__name__))
 
 def days_before_year(year: int) -> int:
-    """Given a year, returns number of days before the first day of that year."""
+    """Given a year, returns number of days before the first day of that year (in the Gregorian calendar)."""
     y = year - 1
     return y * 365 + y // 4 - y // 100 + y // 400
 
@@ -42,7 +44,15 @@ class Date(ABC):
     def get_year(self) -> int:
         """Return the year."""
 
-    # Weekday names
+    # Month/weekday names
+
+    @abstractclassmethod
+    def month_names(cls) -> List[str]:
+        """Full names of each month."""
+
+    @abstractclassmethod
+    def month_abbrevs(cls) -> List[str]:
+        """Abbreviated names of each month (3 letters)."""
 
     @abstractclassmethod
     def weekday_names(cls) -> List[str]:
@@ -140,6 +150,14 @@ class Date(ABC):
     def weekday(self) -> int:
         """Return day of the week as a 0-up integer."""
 
+    @abstractmethod
+    def day_of_year(self) -> int:
+        """Return day of the year as a 0-up integer."""
+
+    @abstractmethod
+    def week_of_year(self) -> int:
+        """Return week of the year as a 0-up integer."""
+
     # String conversions
 
     def ctime(self) -> str:
@@ -147,16 +165,26 @@ class Date(ABC):
         return self.todate().ctime()
 
     @abstractmethod
+    def _strftime_dict(self) -> Dict[str, str]:
+        """Return a dict mapping strftime codes (e.g. %m, %d, %a) to strings that will replace them automatically.
+
+        Subclasses should override this to provide custom strftime() behavior.
+        Any unspecified codes will be interpolated according to the default behavior."""
+
     def strftime(self, fmt: str) -> str:
-        "Format using strftime()."
+        """Format using strftime()."""
+        for (key, val) in self._strftime_dict().items():
+            fmt = fmt.replace(key, val)
+        return self.todate().strftime(fmt)
 
     def isoformat(self) -> str:
         """Return the date as an ISO 8601 format string YYYY-MM-DD (in proleptic Gregorian calendar)."""
         return self.todate().isoformat()
 
-    @abstractmethod
     def __str__(self) -> str:
         """Standard string representation of the Date."""
+        # clean up strftime output to remove dashes occurring for intercalary days
+        return self.strftime('%A, %B %d, %Y').replace('--', '').strip(', ').replace(' ,', ',')
 
 
 class Datetime(ABC):
@@ -223,9 +251,33 @@ class Datetime(ABC):
         date = cls._date_class.fromdate(dt.date())
         return cls.combine(date, dt.timetz())
 
-    @abstractclassmethod
-    def strptime(cls, date_string: str, format: str) -> 'Datetime':
-        """string, format -> new Datetime parsed from a string (like time.strptime())."""
+    # @classmethod
+    # @contextmanager
+    # def _fix_strptime_cache(cls):
+    #     import _strptime
+    #     with _strptime._cache_lock:
+    #         time_re_orig = _strptime._TimeRE_cache
+    #         locale_time = deepcopy(time_re_orig.locale_time)
+    #         locale_time.f_weekday = cls._date_class.weekday_names()
+    #         locale_time.a_weekday = cls._date_class.weekday_abbrevs()
+    #         locale_time.f_month = [''] + cls._date_class.month_names()
+    #         locale_time.a_month = [''] + cls._date_class.month_abbrevs()
+    #         time_re = _strptime.TimeRE(locale_time)
+    #         _strptime._TimeRE_cache = time_re
+    #         time_re['m'] = '(?P<m>1[0-3]|0[1-9]|[1-9]|YrD|LpD)'
+    #         time_re['d'] = '(?P<d>3[0-1]|[1-2]\\d|0[1-9]|[1-9]| [1-9]|--)'
+    #     yield
+    #     with _strptime._cache_lock:
+    #         _strptime._TimeRE_cache = time_re_orig
+
+    @classmethod
+    def strptime(cls, date_string, format):
+        'string, format -> new datetime parsed from a string (like time.strptime()).'
+        raise NotImplementedError
+        # TODO: implement this (need to rewrite parts of _strptime module)
+        # import _strptime
+        # with cls._fix_strptime_cache():
+        #     return _strptime._strptime_datetime(cls, date_string, format)
 
     # Standard conversions
 
@@ -299,6 +351,12 @@ class Datetime(ABC):
     def ctime(self) -> str:
         "Return ctime() style string."
         return self.todatetime().ctime()
+
+    def strftime(self, fmt: str) -> str:
+        """Format using strftime()."""
+        for (key, val) in self.date()._strftime_dict().items():
+            fmt = fmt.replace(key, val)
+        return self.todatetime().strftime(fmt)
 
     def isoformat(self, sep: str = 'T', timespec: str = 'auto') -> str:
         """Return the time formatted according to ISO 8601.
